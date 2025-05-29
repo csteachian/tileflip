@@ -291,15 +291,41 @@
         .hidden {
             display: none;
         }
+
+        .grid-btn {
+            font-size: 14px;
+            padding: 12px 15px;
+            height: auto;
+        }
+
+        .grid-btn small {
+            display: block;
+            font-size: 11px;
+            opacity: 0.8;
+            margin-top: 3px;
+        }
     </style>
 </head>
 <body>
     <div class="game-setup" id="game-setup">
         <h2>Choose Game Mode</h2>
         <p style="margin: 20px 0;">How many human players?</p>
-        <button class="setup-button" onclick="startGame(0)">0 Players (AI Only)</button>
-        <button class="setup-button" onclick="startGame(1)">1 Player vs AI</button>
-        <button class="setup-button" onclick="startGame(2)">2 Players vs AI</button>
+        <button class="setup-button" onclick="selectPlayers(0)">0 Players (AI Only)</button>
+        <button class="setup-button" onclick="selectPlayers(1)">1 Player vs AI</button>
+        <button class="setup-button" onclick="selectPlayers(2)">2 Players vs AI</button>
+        
+        <div id="grid-selection" style="display: none; margin-top: 30px;">
+            <h3>Choose Grid Size</h3>
+            <p style="margin: 15px 0; font-size: 14px;">Larger grids need more tiles to win</p>
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 15px;">
+                <button class="setup-button grid-btn" onclick="startGame(selectedPlayers, 4)">4x4 Grid<br><small>(9 tiles to win)</small></button>
+                <button class="setup-button grid-btn" onclick="startGame(selectedPlayers, 5)">5x5 Grid<br><small>(13 tiles to win)</small></button>
+                <button class="setup-button grid-btn" onclick="startGame(selectedPlayers, 6)">6x6 Grid<br><small>(19 tiles to win)</small></button>
+                <button class="setup-button grid-btn" onclick="startGame(selectedPlayers, 7)">7x7 Grid<br><small>(25 tiles to win)</small></button>
+                <button class="setup-button grid-btn" onclick="startGame(selectedPlayers, 8)">8x8 Grid<br><small>(33 tiles to win)</small></button>
+            </div>
+            <button class="setup-button" onclick="backToPlayers()" style="margin-top: 20px; background: #666;">← Back</button>
+        </div>
     </div>
 
     <div class="ui hidden" id="ui">
@@ -349,19 +375,23 @@
 
     <script>
         class Game {
-            constructor(humanPlayers = 0) {
-                this.board = Array(4).fill().map(() => Array(4).fill('white'));
+            constructor(humanPlayers = 0, gridSize = 4) {
+                this.gridSize = gridSize;
+                this.board = Array(gridSize).fill().map(() => Array(gridSize).fill('white'));
                 this.humanPlayers = humanPlayers;
+                this.winCondition = Math.ceil((gridSize * gridSize) * 0.51); // Just over 50%
+                
+                // Position players in corners based on grid size
                 this.players = [
                     { color: 'red', x: 0, y: 0, element: null, isHuman: humanPlayers >= 1, lastMove: 0 },
-                    { color: 'blue', x: 3, y: 3, element: null, isHuman: humanPlayers >= 2, lastMove: 0 },
-                    { color: 'green', x: 0, y: 3, element: null, isHuman: false, lastMove: 0 }
+                    { color: 'blue', x: gridSize - 1, y: gridSize - 1, element: null, isHuman: humanPlayers >= 2, lastMove: 0 },
+                    { color: 'green', x: 0, y: gridSize - 1, element: null, isHuman: false, lastMove: 0 }
                 ];
                 this.gameRunning = true;
                 this.moveInterval = null;
                 this.tiles = [];
                 this.keyPressed = {};
-                this.moveDelay = 300; // Minimum time between moves (ms)
+                this.moveDelay = 300;
             }
 
             init() {
@@ -456,10 +486,14 @@
                 const gameBoard = document.getElementById('game-board');
                 gameBoard.innerHTML = '';
                 this.tiles = [];
+                
+                // Update CSS grid template
+                gameBoard.style.gridTemplateColumns = `repeat(${this.gridSize}, 80px)`;
+                gameBoard.style.gridTemplateRows = `repeat(${this.gridSize}, 80px)`;
 
-                for (let row = 0; row < 4; row++) {
+                for (let row = 0; row < this.gridSize; row++) {
                     this.tiles[row] = [];
-                    for (let col = 0; col < 4; col++) {
+                    for (let col = 0; col < this.gridSize; col++) {
                         const tile = document.createElement('div');
                         tile.className = 'tile';
                         tile.dataset.row = row;
@@ -516,12 +550,11 @@
             }
 
             claimTile(x, y, color) {
-                if (x >= 0 && x < 4 && y >= 0 && y < 4) {
+                if (x >= 0 && x < this.gridSize && y >= 0 && y < this.gridSize) {
                     this.board[y][x] = color;
                     const tile = this.tiles[y][x];
                     tile.className = `tile ${color} claimed`;
                     
-                    // Remove claimed animation after it completes
                     setTimeout(() => {
                         tile.classList.remove('claimed');
                     }, 600);
@@ -534,8 +567,8 @@
             updateScores() {
                 const scores = { red: 0, blue: 0, green: 0, white: 0 };
                 
-                for (let row = 0; row < 4; row++) {
-                    for (let col = 0; col < 4; col++) {
+                for (let row = 0; row < this.gridSize; row++) {
+                    for (let col = 0; col < this.gridSize; col++) {
                         scores[this.board[row][col]]++;
                     }
                 }
@@ -548,8 +581,8 @@
             checkWin() {
                 const scores = { red: 0, blue: 0, green: 0 };
                 
-                for (let row = 0; row < 4; row++) {
-                    for (let col = 0; col < 4; col++) {
+                for (let row = 0; row < this.gridSize; row++) {
+                    for (let col = 0; col < this.gridSize; col++) {
                         if (this.board[row][col] !== 'white') {
                             scores[this.board[row][col]]++;
                         }
@@ -557,7 +590,7 @@
                 }
 
                 for (let color in scores) {
-                    if (scores[color] >= 9) {
+                    if (scores[color] >= this.winCondition) {
                         this.endGame(color);
                         return;
                     }
@@ -591,7 +624,7 @@
                     case 'right': newX++; break;
                 }
 
-                if (newX >= 0 && newX < 4 && newY >= 0 && newY < 4) {
+                if (newX >= 0 && newX < this.gridSize && newY >= 0 && newY < this.gridSize) {
                     player.x = newX;
                     player.y = newY;
                     player.element.classList.add('moving');
@@ -620,19 +653,16 @@
                         case 'right': newX++; break;
                     }
 
-                    if (newX >= 0 && newX < 4 && newY >= 0 && newY < 4) {
+                    if (newX >= 0 && newX < this.gridSize && newY >= 0 && newY < this.gridSize) {
                         const priority = this.board[newY][newX] === 'white' ? 3 : 
-                                       this.board[newY][newX] === player.color ? 1 : 2;
+                           this.board[newY][newX] === player.color ? 1 : 2;
                         validMoves.push({ direction, priority, x: newX, y: newY });
                     }
                 });
 
                 if (validMoves.length === 0) return null;
 
-                // Sort by priority (higher is better)
                 validMoves.sort((a, b) => b.priority - a.priority);
-                
-                // Add some randomness but prefer better moves
                 const topMoves = validMoves.filter(move => move.priority === validMoves[0].priority);
                 return topMoves[Math.floor(Math.random() * topMoves.length)].direction;
             }
@@ -653,15 +683,40 @@
             }
         }
 
-        let game;
+        let selectedPlayers = 0;
 
-        function startGame(humanPlayers) {
+        function selectPlayers(count) {
+            selectedPlayers = count;
+            document.querySelector('h2').style.display = 'none';
+            document.querySelector('p').style.display = 'none';
+            document.querySelectorAll('.setup-button:not(.grid-btn)').forEach(btn => {
+                if (!btn.onclick.toString().includes('selectPlayers')) return;
+                btn.style.display = 'none';
+            });
+            document.getElementById('grid-selection').style.display = 'block';
+        }
+
+        function backToPlayers() {
+            document.querySelector('h2').style.display = 'block';
+            document.querySelector('p').style.display = 'block';
+            document.querySelectorAll('.setup-button:not(.grid-btn)').forEach(btn => {
+                if (!btn.onclick.toString().includes('selectPlayers')) return;
+                btn.style.display = 'inline-block';
+            });
+            document.getElementById('grid-selection').style.display = 'none';
+        }
+
+        function startGame(humanPlayers, gridSize = 4) {
             document.getElementById('game-setup').style.display = 'none';
             document.getElementById('ui').classList.remove('hidden');
             document.getElementById('controls').classList.remove('hidden');
             document.getElementById('game-container').classList.remove('hidden');
             
-            game = new Game(humanPlayers);
+            // Update win condition display
+            const winCondition = Math.ceil((gridSize * gridSize) * 0.51);
+            document.querySelector('#ui div:last-child').textContent = `First to ${winCondition} tiles wins!`;
+            
+            game = new Game(humanPlayers, gridSize);
             game.init();
         }
 
@@ -670,6 +725,15 @@
             document.getElementById('ui').classList.add('hidden');
             document.getElementById('controls').classList.add('hidden');
             document.getElementById('game-container').classList.add('hidden');
+            
+            // Reset setup screen
+            document.querySelector('h2').style.display = 'block';
+            document.querySelector('p').style.display = 'block';
+            document.querySelectorAll('.setup-button:not(.grid-btn)').forEach(btn => {
+                if (!btn.onclick.toString().includes('selectPlayers')) return;
+                btn.style.display = 'inline-block';
+            });
+            document.getElementById('grid-selection').style.display = 'none';
             document.getElementById('game-setup').style.display = 'block';
             
             // Reset control displays

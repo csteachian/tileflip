@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TileFlip</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .game-setup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            font-size: 18px;
+            z-index: 300;
+        }
+
+        .setup-button {
+            background: #3742fa;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px;
+            transition: background 0.3s ease;
+        }
+
+        .setup-button:hover {
+            background: #2f3542;
+        }
+
+        .setup-button.selected {
+            background: #2ed573;
+        }
+
+        .game-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .game-board {
+            position: relative;
+            display: grid;
+            grid-template-columns: repeat(4, 80px);
+            grid-template-rows: repeat(4, 80px);
+            gap: 4px;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 10px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .tile {
+            width: 80px;
+            height: 80px;
+            background: #f0f0f0;
+            border: 3px solid #ddd;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            position: relative;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .tile.red {
+            background: #ff4757;
+            border-color: #ff3742;
+            box-shadow: 0 2px 8px rgba(255, 71, 87, 0.3);
+        }
+
+        .tile.blue {
+            background: #3742fa;
+            border-color: #2f3542;
+            box-shadow: 0 2px 8px rgba(55, 66, 250, 0.3);
+        }
+
+        .tile.green {
+            background: #2ed573;
+            border-color: #26d467;
+            box-shadow: 0 2px 8px rgba(46, 213, 115, 0.3);
+        }
+
+        .player {
+            position: absolute;
+            width: 50px;
+            height: 60px;
+            z-index: 10;
+            transition: all 0.5s ease;
+            pointer-events: none;
+        }
+
+        .player-body {
+            width: 50px;
+            height: 50px;
+            border-radius: 25px 25px 12px 12px;
+            position: relative;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .player-visor {
+            position: absolute;
+            width: 32px;
+            height: 18px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 16px;
+            top: 12px;
+            left: 9px;
+            border: 2px solid rgba(0, 0, 0, 0.1);
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .player-legs {
+            position: absolute;
+            bottom: -8px;
+            left: 15px;
+            width: 20px;
+            height: 12px;
+            border-radius: 0 0 10px 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .player.red .player-body {
+            background: #ff4757;
+        }
+
+        .player.red .player-legs {
+            background: #ff3742;
+        }
+
+        .player.blue .player-body {
+            background: #3742fa;
+        }
+
+        .player.blue .player-legs {
+            background: #2f3542;
+        }
+
+        .player.green .player-body {
+            background: #2ed573;
+        }
+
+        .player.green .player-legs {
+            background: #26d467;
+        }
+
+        .player.human .player-body {
+            border: 3px solid #ffd700;
+            animation: humanGlow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes humanGlow {
+            0% { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2), 0 0 0 rgba(255, 215, 0, 0.4); }
+            100% { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2), 0 0 15px rgba(255, 215, 0, 0.6); }
+        }
+
+        .ui {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 18px;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 20px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+
+        .score {
+            margin: 5px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .score-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            color: white;
+            font-size: 14px;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 20px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+            max-width: 200px;
+        }
+
+        .control-group {
+            margin: 10px 0;
+        }
+
+        .control-group h4 {
+            margin-bottom: 5px;
+            color: #ffd700;
+        }
+
+        .game-over {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            font-size: 24px;
+            z-index: 200;
+            display: none;
+        }
+
+        .restart-btn {
+            background: #3742fa;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 18px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background 0.3s ease;
+        }
+
+        .restart-btn:hover {
+            background: #2f3542;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); }
+            50% { box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4); }
+        }
+
+        .player.moving {
+            animation: bounce 0.5s ease-in-out;
+        }
+
+        .tile.claimed {
+            animation: pulse 0.6s ease-in-out;
+        }
+
+        .player-shadow {
+            position: absolute;
+            bottom: -5px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 8px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 50%;
+            filter: blur(2px);
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-setup" id="game-setup">
+        <h2>Choose Game Mode</h2>
+        <p style="margin: 20px 0;">How many human players?</p>
+        <button class="setup-button" onclick="startGame(0)">0 Players (AI Only)</button>
+        <button class="setup-button" onclick="startGame(1)">1 Player vs AI</button>
+        <button class="setup-button" onclick="startGame(2)">2 Players vs AI</button>
+    </div>
+
+    <div class="ui hidden" id="ui">
+        <h2>Tile Conquest</h2>
+        <div class="score">
+            <span class="score-color" style="background: #ff4757;"></span>
+            <span>Red: <span id="red-score">0</span> <span id="red-type"></span></span>
+        </div>
+        <div class="score">
+            <span class="score-color" style="background: #3742fa;"></span>
+            <span>Blue: <span id="blue-score">0</span> <span id="blue-type"></span></span>
+        </div>
+        <div class="score">
+            <span class="score-color" style="background: #2ed573;"></span>
+            <span>Green: <span id="green-score">0</span> <span id="green-type"></span></span>
+        </div>
+        <div style="margin-top: 10px; font-size: 14px;">
+            First to 9 tiles wins!
+        </div>
+    </div>
+
+    <div class="controls hidden" id="controls">
+        <h3>Controls</h3>
+        <div class="control-group" id="player1-controls" style="display: none;">
+            <h4>Player 1 (Red)</h4>
+            <div>W/A/S/D - Move</div>
+        </div>
+        <div class="control-group" id="player2-controls" style="display: none;">
+            <h4>Player 2 (Blue)</h4>
+            <div>Arrow Keys - Move</div>
+        </div>
+        <div style="margin-top: 15px; font-size: 12px; opacity: 0.8;">
+            Human players have golden glow
+        </div>
+    </div>
+
+    <div class="game-container hidden" id="game-container">
+        <div class="game-board" id="game-board">
+            <!-- Tiles will be generated by JavaScript -->
+        </div>
+    </div>
+
+    <div class="game-over" id="game-over">
+        <h2 id="winner-text">Game Over!</h2>
+        <button class="restart-btn" onclick="showSetup()">New Game</button>
+    </div>
+
+    <script>
+        class Game {
+            constructor(humanPlayers = 0) {
+                this.board = Array(4).fill().map(() => Array(4).fill('white'));
+                this.humanPlayers = humanPlayers;
+                this.players = [
+                    { color: 'red', x: 0, y: 0, element: null, isHuman: humanPlayers >= 1, lastMove: 0 },
+                    { color: 'blue', x: 3, y: 3, element: null, isHuman: humanPlayers >= 2, lastMove: 0 },
+                    { color: 'green', x: 0, y: 3, element: null, isHuman: false, lastMove: 0 }
+                ];
+                this.gameRunning = true;
+                this.moveInterval = null;
+                this.tiles = [];
+                this.keyPressed = {};
+                this.moveDelay = 300; // Minimum time between moves (ms)
+            }
+
+            init() {
+                this.createBoard();
+                this.createPlayers();
+                this.updateScores();
+                this.setupControls();
+                this.startAI();
+            }
+
+            setupControls() {
+                // Update UI to show player types
+                document.getElementById('red-type').textContent = this.players[0].isHuman ? '(Human)' : '(AI)';
+                document.getElementById('blue-type').textContent = this.players[1].isHuman ? '(Human)' : '(AI)';
+                document.getElementById('green-type').textContent = this.players[2].isHuman ? '(Human)' : '(AI)';
+
+                // Show control instructions
+                if (this.players[0].isHuman) {
+                    document.getElementById('player1-controls').style.display = 'block';
+                }
+                if (this.players[1].isHuman) {
+                    document.getElementById('player2-controls').style.display = 'block';
+                }
+
+                // Add keyboard event listeners
+                document.addEventListener('keydown', (e) => this.handleKeyDown(e));
+                document.addEventListener('keyup', (e) => this.handleKeyUp(e));
+            }
+
+            handleKeyDown(e) {
+                if (!this.gameRunning) return;
+                
+                const key = e.key.toLowerCase();
+                if (this.keyPressed[key]) return; // Prevent key repeat
+                
+                this.keyPressed[key] = true;
+                const now = Date.now();
+
+                // Player 1 controls (WASD)
+                if (this.players[0].isHuman && now - this.players[0].lastMove > this.moveDelay) {
+                    switch (key) {
+                        case 'w':
+                            this.movePlayer(this.players[0], 'up');
+                            this.players[0].lastMove = now;
+                            break;
+                        case 's':
+                            this.movePlayer(this.players[0], 'down');
+                            this.players[0].lastMove = now;
+                            break;
+                        case 'a':
+                            this.movePlayer(this.players[0], 'left');
+                            this.players[0].lastMove = now;
+                            break;
+                        case 'd':
+                            this.movePlayer(this.players[0], 'right');
+                            this.players[0].lastMove = now;
+                            break;
+                    }
+                }
+
+                // Player 2 controls (Arrow keys)
+                if (this.players[1].isHuman && now - this.players[1].lastMove > this.moveDelay) {
+                    switch (key) {
+                        case 'arrowup':
+                            this.movePlayer(this.players[1], 'up');
+                            this.players[1].lastMove = now;
+                            break;
+                        case 'arrowdown':
+                            this.movePlayer(this.players[1], 'down');
+                            this.players[1].lastMove = now;
+                            break;
+                        case 'arrowleft':
+                            this.movePlayer(this.players[1], 'left');
+                            this.players[1].lastMove = now;
+                            break;
+                        case 'arrowright':
+                            this.movePlayer(this.players[1], 'right');
+                            this.players[1].lastMove = now;
+                            break;
+                    }
+                }
+
+                e.preventDefault();
+            }
+
+            handleKeyUp(e) {
+                const key = e.key.toLowerCase();
+                this.keyPressed[key] = false;
+            }
+
+            createBoard() {
+                const gameBoard = document.getElementById('game-board');
+                gameBoard.innerHTML = '';
+                this.tiles = [];
+
+                for (let row = 0; row < 4; row++) {
+                    this.tiles[row] = [];
+                    for (let col = 0; col < 4; col++) {
+                        const tile = document.createElement('div');
+                        tile.className = 'tile';
+                        tile.dataset.row = row;
+                        tile.dataset.col = col;
+                        gameBoard.appendChild(tile);
+                        this.tiles[row][col] = tile;
+                    }
+                }
+            }
+
+            createPlayers() {
+                const gameBoard = document.getElementById('game-board');
+                
+                this.players.forEach(player => {
+                    const playerElement = document.createElement('div');
+                    playerElement.className = `player ${player.color}${player.isHuman ? ' human' : ''}`;
+                    
+                    const body = document.createElement('div');
+                    body.className = 'player-body';
+                    
+                    const visor = document.createElement('div');
+                    visor.className = 'player-visor';
+                    
+                    const legs = document.createElement('div');
+                    legs.className = 'player-legs';
+                    
+                    const shadow = document.createElement('div');
+                    shadow.className = 'player-shadow';
+                    
+                    body.appendChild(visor);
+                    body.appendChild(legs);
+                    playerElement.appendChild(body);
+                    playerElement.appendChild(shadow);
+                    
+                    player.element = playerElement;
+                    gameBoard.appendChild(playerElement);
+                    
+                    this.updatePlayerPosition(player);
+                    this.claimTile(player.x, player.y, player.color);
+                });
+            }
+
+            updatePlayerPosition(player) {
+                // Position player in the center of the tile
+                const tileSize = 80;
+                const gap = 4;
+                const padding = 10;
+                
+                const x = padding + (player.x * (tileSize + gap)) + (tileSize / 2) - 25; // 25 is half player width
+                const y = padding + (player.y * (tileSize + gap)) + (tileSize / 2) - 30; // 30 is half player height
+                
+                player.element.style.left = `${x}px`;
+                player.element.style.top = `${y}px`;
+            }
+
+            claimTile(x, y, color) {
+                if (x >= 0 && x < 4 && y >= 0 && y < 4) {
+                    this.board[y][x] = color;
+                    const tile = this.tiles[y][x];
+                    tile.className = `tile ${color} claimed`;
+                    
+                    // Remove claimed animation after it completes
+                    setTimeout(() => {
+                        tile.classList.remove('claimed');
+                    }, 600);
+                    
+                    this.updateScores();
+                    this.checkWin();
+                }
+            }
+
+            updateScores() {
+                const scores = { red: 0, blue: 0, green: 0, white: 0 };
+                
+                for (let row = 0; row < 4; row++) {
+                    for (let col = 0; col < 4; col++) {
+                        scores[this.board[row][col]]++;
+                    }
+                }
+
+                document.getElementById('red-score').textContent = scores.red;
+                document.getElementById('blue-score').textContent = scores.blue;
+                document.getElementById('green-score').textContent = scores.green;
+            }
+
+            checkWin() {
+                const scores = { red: 0, blue: 0, green: 0 };
+                
+                for (let row = 0; row < 4; row++) {
+                    for (let col = 0; col < 4; col++) {
+                        if (this.board[row][col] !== 'white') {
+                            scores[this.board[row][col]]++;
+                        }
+                    }
+                }
+
+                for (let color in scores) {
+                    if (scores[color] >= 9) {
+                        this.endGame(color);
+                        return;
+                    }
+                }
+            }
+
+            endGame(winner) {
+                this.gameRunning = false;
+                clearInterval(this.moveInterval);
+                
+                const winnerPlayer = this.players.find(p => p.color === winner);
+                const playerType = winnerPlayer.isHuman ? 'Human' : 'AI';
+                
+                const gameOver = document.getElementById('game-over');
+                const winnerText = document.getElementById('winner-text');
+                winnerText.textContent = `${winner.charAt(0).toUpperCase() + winner.slice(1)} ${playerType} Wins!`;
+                winnerText.style.color = winner === 'red' ? '#ff4757' : winner === 'blue' ? '#3742fa' : '#2ed573';
+                gameOver.style.display = 'block';
+            }
+
+            movePlayer(player, direction) {
+                if (!this.gameRunning) return;
+
+                let newX = player.x;
+                let newY = player.y;
+
+                switch (direction) {
+                    case 'up': newY--; break;
+                    case 'down': newY++; break;
+                    case 'left': newX--; break;
+                    case 'right': newX++; break;
+                }
+
+                if (newX >= 0 && newX < 4 && newY >= 0 && newY < 4) {
+                    player.x = newX;
+                    player.y = newY;
+                    player.element.classList.add('moving');
+                    
+                    setTimeout(() => {
+                        player.element.classList.remove('moving');
+                    }, 500);
+                    
+                    this.updatePlayerPosition(player);
+                    this.claimTile(newX, newY, player.color);
+                }
+            }
+
+            getAIMove(player) {
+                const directions = ['up', 'down', 'left', 'right'];
+                const validMoves = [];
+
+                directions.forEach(direction => {
+                    let newX = player.x;
+                    let newY = player.y;
+
+                    switch (direction) {
+                        case 'up': newY--; break;
+                        case 'down': newY++; break;
+                        case 'left': newX--; break;
+                        case 'right': newX++; break;
+                    }
+
+                    if (newX >= 0 && newX < 4 && newY >= 0 && newY < 4) {
+                        const priority = this.board[newY][newX] === 'white' ? 3 : 
+                                       this.board[newY][newX] === player.color ? 1 : 2;
+                        validMoves.push({ direction, priority, x: newX, y: newY });
+                    }
+                });
+
+                if (validMoves.length === 0) return null;
+
+                // Sort by priority (higher is better)
+                validMoves.sort((a, b) => b.priority - a.priority);
+                
+                // Add some randomness but prefer better moves
+                const topMoves = validMoves.filter(move => move.priority === validMoves[0].priority);
+                return topMoves[Math.floor(Math.random() * topMoves.length)].direction;
+            }
+
+            startAI() {
+                this.moveInterval = setInterval(() => {
+                    if (!this.gameRunning) return;
+
+                    this.players.forEach(player => {
+                        if (!player.isHuman) {
+                            const move = this.getAIMove(player);
+                            if (move) {
+                                this.movePlayer(player, move);
+                            }
+                        }
+                    });
+                }, 800);
+            }
+        }
+
+        let game;
+
+        function startGame(humanPlayers) {
+            document.getElementById('game-setup').style.display = 'none';
+            document.getElementById('ui').classList.remove('hidden');
+            document.getElementById('controls').classList.remove('hidden');
+            document.getElementById('game-container').classList.remove('hidden');
+            
+            game = new Game(humanPlayers);
+            game.init();
+        }
+
+        function showSetup() {
+            document.getElementById('game-over').style.display = 'none';
+            document.getElementById('ui').classList.add('hidden');
+            document.getElementById('controls').classList.add('hidden');
+            document.getElementById('game-container').classList.add('hidden');
+            document.getElementById('game-setup').style.display = 'block';
+            
+            // Reset control displays
+            document.getElementById('player1-controls').style.display = 'none';
+            document.getElementById('player2-controls').style.display = 'none';
+        }
+
+        // Start with setup screen
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('game-setup').style.display = 'block';
+        });
+    </script>
+</body>
+</html>
